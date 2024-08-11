@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    .mdui-panel-item {
+        transition: box-shadow .25s cubic-bezier(.4,0,.2,1),
+            -webkit-box-shadow .25s cubic-bezier(.4,0,.2,1),
+            margin .3s cubic-bezier(.4,0,.2,1) !important;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="mdui-panel mdui-panel-popout" mdui-panel>
+    {% for k, v in listeners.items() %}
+    <div class="mdui-panel-item mdui-hoverable">
+        <div class="mdui-panel-item-header">{{ k }} 监听器</div>
+        <div class="mdui-panel-item-body">
+            <table class="mdui-table mdui-table-hoverable">
+                <thead>
+                    <tr>
+                        <th>所属插件</th>
+                        <th>指令名</th>
+                        <th>指令描述</th>
+                        <th>指令权限</th>
+                        <th>使用方法</th>
+                        <th>别名</th>
+                        <th>已隐藏?</th>
+                        <th>已禁用?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if v %}
+                    {% for plugin, cmds in v.items() %}
+                        {% for cmd in cmds %}
+                        <tr>
+                            <td>{{ plugin }}</td>
+                            <td>{{ cmd.name }}</td>
+                            <td>{{ cmd.description }}</td>
+                            <td>{{ cmd.permission }}</td>
+                            <td>{{ cmd.usage }}</td>
+                            <td>{% if cmd.alias %}{{ cmd.alias }}{% else %}无{% endif %}</td>
+                            {% if cmd.hidden %}<td style="color:red;">已隐藏</td>{% else %}<td style="color:green;">未隐藏</td>{% endif %}
+                            {% if cmd.enabled %}<td style="color:green;">未禁用</td>{% else %}<td style="color:red;">已禁用</td>{% endif %}
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td>暂无此类型监听器</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

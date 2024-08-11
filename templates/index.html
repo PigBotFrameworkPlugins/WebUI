@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+    .circle {
+        fill: none;
+        stroke: #7C83FD;
+        stroke-width: 8;
+        stroke-dasharray: 314;
+        stroke-dashoffset:314;
+        stroke-linecap: round;
+        transform:rotate(-90deg);
+        transform-origin: center;
+        transform-box:fill-box;
+        transition: .5s;
+    }
+    .text{
+        font-size: 20px;
+    }
+    .percent{
+        font-size: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="mdui-row">
+    <div class="mdui-col-xs-12 mdui-col-sm-6">
+        <div class="mdui-card mdui-hoverable">
+            <div class="mdui-card-primary">
+                <div class="mdui-card-primary-title">PBF 信息</div>
+            </div>
+            <div class="mdui-card-content">
+                <ul class="mdui-list" mdui-collapse="{accordion: true}">
+                    {% for key, value in PBFInfo.items() %}
+                    <li class="mdui-collapse-item{% if key == '版本' %} mdui-collapse-item-open{% endif %}">
+                        <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+                            <i class="mdui-list-item-icon mdui-icon material-icons">info_outline</i>
+                            <div class="mdui-list-item-content">{{ key }}</div>
+                            <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+                        </div>
+                        <ul class="mdui-collapse-item-body mdui-list mdui-list-dense">
+                            {% for k, v in value.items() %}
+                            <li class="mdui-list-item mdui-ripple">{{ k }}: {{ v }}</li>
+                            {% endfor %}
+                        </ul>
+                      </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="mdui-col-xs-12 mdui-col-sm-6">
+        <div class="mdui-card mdui-hoverable">
+            <div class="mdui-card-primary">
+                <div class="mdui-card-primary-title">服务器信息</div>
+            </div>
+            <div class="mdui-card-content">
+                <ul class="mdui-list">
+                    {% for key, value in SystemInfo.items() %}
+                    <li class="mdui-list-item mdui-ripple">
+                        <i class="mdui-list-item-icon mdui-icon material-icons">info_outline</i>
+                        <div class="mdui-list-item-content">{{ key }}: {{ value }}</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mdui-card mdui-hoverable mdui-m-t-2">
+    <div class="mdui-card-primary">
+        <div class="mdui-card-primary-title">资源使用率</div>
+    </div>
+    <div class="mdui-card-content">
+        <svg>
+            <circle class="circle" cx="80" cy="80" r="50" fill="none" stroke-width="8"></circle>
+            <text x="80" y="78" fill="#6b778c" text-anchor="middle">
+                <tspan class="text">0</tspan><tspan class="percent">%</tspan>
+            </text>
+            <text x="80" y="97" fill="#6b778c" text-anchor="middle">
+                <tspan>CPU Usage</tspan>
+            </text>
+        </svg>
+        <svg>
+            <circle class="circle" cx="80" cy="80" r="50" fill="none" stroke-width="8"></circle>
+            <text x="80" y="78" fill="#6b778c" text-anchor="middle">
+                <tspan class="text">0</tspan><tspan class="percent">%</tspan>
+            </text>
+            <text x="80" y="97" fill="#6b778c" text-anchor="middle">
+                <tspan>Memory Usage</tspan>
+            </text>
+        </svg>
+        <svg>
+            <circle class="circle" cx="80" cy="80" r="50" fill="none" stroke-width="8"></circle>
+            <text x="80" y="78" fill="#6b778c" text-anchor="middle">
+                <tspan class="text">0</tspan><tspan class="percent">%</tspan>
+            </text>
+            <text x="80" y="97" fill="#6b778c" text-anchor="middle">
+                <tspan>Disk Usage</tspan>
+            </text>
+        </svg>
+    </div>
+</div>
+
+<div class="mdui-row mdui-m-t-2">
+    <div class="mdui-col-xs-12 mdui-col-sm-6">
+        <div class="mdui-card mdui-hoverable">
+            <div class="mdui-card-primary">
+                <div class="mdui-card-primary-title">Web UI</div>
+            </div>
+            <div class="mdui-card-content mdui-typo">
+                您现在使用的是Web UI {{WebUIInfo['meta_data'].version}}版本<br>
+                <br>
+                插件仓库：<a href="https://github.com/PigBotFrameworkPlugins/WebUI">PigBotFrameworkPlugins/WebUI</a><br>
+                如果您在使用期间遇到问题，请<a href="https://github.com/PigBotFrameworkPlugins/WebUI/issues">前往提交issue</a><br>
+                本插件的开发时间、更新周期不固定，仓库欢迎您的PR。
+            </div>
+        </div>
+    </div>
+    <div class="mdui-col-xs-12 mdui-col-sm-6">
+        <div class="mdui-card mdui-hoverable">
+            <div class="mdui-card-primary">
+                <div class="mdui-card-primary-title">赞助我</div>
+                <div class="mdui-card-primary-subtitle">通过爱发电</div>
+            </div>
+            <div class="mdui-card-content mdui-typo">
+                <iframe id="afdian_leaflet" class="mdui-center" src="https://afdian.com/leaflet?slug=Gingmzmzx"
+                    frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let progressLen=314;
+    const textDom=$(".text");
+    const circleDom=$(".circle");
+    var sysInfoInterval;
+
+    const setPercent=(num, idx)=>{
+        if(num>100) return;
+        circleDom[idx].style['stroke-dashoffset'] = progressLen-(progressLen/100)*num;
+        textDom[idx].innerHTML=num;
+    }
+
+    $(function(){
+        var getSysInfo = () => {
+            $.ajax({
+                method: 'GET',
+                url: '/web/api/sys_info',
+                success: function (data) {
+                    data = JSON.parse(data);
+                    $.each(data, function(index, value){
+                        console.log(value, index);
+                        setPercent(value, index);
+                    });
+                },
+                error: function(err){
+                    mdui.snackbar("获取系统使用率失败！");
+                }
+            });
+        };
+        sysInfoInterval = setInterval(getSysInfo, 1000);
+    });
+</script>
+{% endblock %}

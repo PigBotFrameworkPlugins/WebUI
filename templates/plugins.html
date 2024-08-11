@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block head %}
+<script src="//cdn.xzynb.top/js/markdown.js"></script>
+{% endblock %}
+
+{% block body %}
+<div class="mdui-clearfix">
+    <div class="mdui-float-left">
+        <button class="mdui-color-theme-accent mdui-btn mdui-btn-raised mdui-ripple"
+            onclick="installDialog.open()">安装新插件</button>
+        <button class="mdui-color-theme-accent mdui-btn mdui-btn-raised mdui-ripple"
+            onclick="loadDialog.open()">加载新插件</button>
+    </div>
+    <div class="mdui-float-right mdui-clearfix">
+        <div class="mdui-float-left mdui-m-r-1">
+            <input class="mdui-textfield-input" type="text" placeholder="Plugin ID / Name" id="search_input" />
+        </div>
+        <button class="mdui-float right mdui-color-theme-accent mdui-btn mdui-btn-raised mdui-ripple" onclick="search();">
+            <i class="mdui-icon material-icons">search</i>
+            搜索
+        </button>
+    </div>
+</div>
+
+<div class="mdui-table-fluid mdui-m-t-1">
+    <table class="mdui-table mdui-table-hoverable">
+        <thead>
+            <tr>
+                <th>插件ID</th>
+                <th>插件名</th>
+                <th>版本</th>
+                <th>描述</th>
+                <th>作者</th>
+                <th>开源协议</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if plugins %}
+            {% for id, value in plugins.items() %}
+            <tr>
+                <td>{{ id }}</td>
+                <td>{{ value['name'] }}</td>
+                <td>{{ value['version'] }}</td>
+                <td>{{ value['description'] }}</td>
+                <td>{{ value['author'] }}</td>
+                <td>{{ value['license'] }}</td>
+                <td class="mdui-typo"><a href="javascript:view(`{{ id }}`);">查看</a> <a style="color:red;" href="javascript:disable(`{{ id }}`);">卸载</a></td>
+            </tr>
+            {% endfor %}
+            {% else %}
+                {% if q %}
+                    <tr>
+                        <td>未搜索到符合要求的插件</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td>未安装插件</td>
+                    </tr>
+                {% endif %}
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mdui-dialog" id="viewPluginDialog">
+    <div class="mdui-dialog-title">插件 <code id="viewPluginDialog_pluginid"></code></div>
+    <div class="mdui-dialog-content" id="viewPluginDialog_content">
+        <div class="mdui-tab" mdui-tab>
+            <a href="#viewPluginDialog_tab1" class="mdui-ripple">README</a>
+            <a href="#viewPluginDialog_tab2" class="mdui-ripple">Listeners</a>
+        </div>
+        <div id="viewPluginDialog_tab1" class="mdui-p-a-2"></div>
+        <div id="viewPluginDialog_tab2" class="mdui-p-a-2">
+            <ul class="mdui-list" id="viewPluginDialog_list">
+            </ul>
+        </div>
+    </div>
+    <div class="mdui-dialog-actions">
+        <button class="mdui-btn mdui-ripple" onclick="viewDialog.close();">关闭</button>
+    </div>
+</div>
+
+<div class="mdui-dialog" id="loadPluginDialog">
+    <div class="mdui-dialog-title">加载插件</div>
+    <div class="mdui-dialog-content" id="loadPluginDialog_content">
+        <div class="mdui-textfield mdui-textfield-floating-label">
+            <label class="mdui-textfield-label">Plugin ID</label>
+            <input class="mdui-textfield-input" type="text" id="loadPluginDialog_id" />
+        </div>
+    </div>
+    <div class="mdui-dialog-actions">
+        <button class="mdui-btn mdui-ripple" onclick="loadDialog.close();">关闭</button>
+        <button class="mdui-btn mdui-ripple" onclick="load();">加载</button>
+    </div>
+</div>
+
+<div class="mdui-dialog" id="installPluginDialog">
+    <div class="mdui-dialog-title">安装插件</div>
+    <div class="mdui-dialog-content" id="installPluginDialog_content">
+        <label class="mdui-switch">
+            <input type="checkbox" id="installPluginDialog_switch" checked />
+            <i class="mdui-switch-icon"></i>
+        </label>
+        <span class="mdui-m-l-1">使用PBFPlugins官方仓库</span>
+        <div class="mdui-textfield mdui-textfield-floating-label">
+            <label class="mdui-textfield-label" id="installPluginDialog_label">仓库名 / Plugin ID</label>
+            <input class="mdui-textfield-input" type="text" id="installPluginDialog_id" />
+        </div>
+    </div>
+    <div class="mdui-dialog-actions">
+        <button class="mdui-btn mdui-ripple" onclick="installDialog.close();">关闭</button>
+        <button class="mdui-btn mdui-ripple" onclick="install();">安装</button>
+    </div>
+</div>
+
+<script>
+    var viewDialog = new mdui.Dialog("#viewPluginDialog");
+    var loadDialog = new mdui.Dialog("#loadPluginDialog");
+    var installDialog = new mdui.Dialog("#installPluginDialog");
+
+    $(function(){
+        {% if q %}$("#search_input").val(`{{ q }}`);{% endif %}
+
+        $("#installPluginDialog_switch").on("change", function(){
+            console.log($(this).prop("checked"));
+            if($(this).prop("checked")){
+                $("#installPluginDialog_label").html("仓库名 / Plugin ID");
+            }else{
+                $("#installPluginDialog_label").html("仓库git完整地址");
+            }
+        });
+    });
+
+    function view(id){
+        $("#viewPluginDialog_pluginid").html(id);
+        $("#viewPluginDialog_list").html(``);
+        $("#viewPluginDialog_tab1").html(`
+        <div class="mdui-center"><div class="mdui-spinner mdui-spinner-colorful"></div></div>
+        `);
+
+        $.ajax({
+            method: 'GET',
+            url: '/web/api/get_plugin',
+            data: {
+                plugin_id: id
+            },
+            success: function (data) {
+                data = JSON.parse(data);
+                console.log(data);
+                $("#viewPluginDialog_tab1").html(marked.parse(data.readme));
+                $.each(data.listeners, function(index, value){
+                    $("#viewPluginDialog_list").append(`<li class="mdui-list-item mdui-ripple">
+                            <i class="mdui-list-item-icon mdui-icon material-icons">clear_all</i>
+                        <div class="mdui-list-item-content">
+                        <div class="mdui-list-item-title">${value.name}</div>
+                            <div class="mdui-list-item-text mdui-list-item-one-line">
+                                <span class="mdui-text-color-theme-text">Type: </span>${value.type} <span class="mdui-text-color-theme-text">Enabled: </span>${value.enabled}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="mdui-divider-inset mdui-m-y-0"></li>`);
+                });
+                mdui.mutation();
+            },
+            error: function (err) {
+                mdui.snackbar("请求插件错误！请重试");
+            }
+        });
+
+        viewDialog.open();
+    }
+
+    function disable(id){
+        $.ajax({
+            method: 'GET',
+            url: '/plugins/disable',
+            data: {
+                plugin: id
+            },
+            success: function (data) {
+                window.location.reload();
+            },
+            error: function (err) {
+                mdui.snackbar("请求错误！请重试");
+            }
+        });
+    }
+
+    function load(){
+        var id = $("#loadPluginDialog_id").val();
+        loadDialog.close();
+
+        $.ajax({
+            method: 'GET',
+            url: '/plugins/enable',
+            data: {
+                plugin: id
+            },
+            success: function (data) {
+                window.location.reload();
+            },
+            error: function (err) {
+                mdui.snackbar("请求错误！请重试");
+            }
+        });
+    }
+
+    function search(){
+        var data = $("#search_input").val();
+        console.log(data);
+        window.location.href = `/web/plugins/?q=${data}`
+    }
+
+    function install(){
+        installDialog.close();
+        var id = $("#installPluginDialog_id").val();
+        var use_official = $("#installPluginDialog_switch").prop("checked");
+        if (use_official){
+            if (id.indexOf("/") != -1){
+                mdui.snackbar("插件ID不能包含 /");
+                return;
+            }
+            id = "https://github.com/PigBotFrameworkPlugins/" + id;
+        }
+
+        mdui.snackbar("正在安装插件，请稍后...");
+        $.ajax({
+            method: 'GET',
+            url: '/web/api/install_plugin',
+            data: {
+                repo_url: id,
+                reinstall: true
+            },
+            success: function (data) {
+                window.location.reload();
+            },
+            error: function (err) {
+                mdui.snackbar("请求错误！请重试");
+            }
+        });
+    }
+</script>
+{% endblock %}
