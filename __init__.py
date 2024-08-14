@@ -8,11 +8,13 @@ from pbf.setup import logger, pluginsManager
 try:
     import psutil
     import git
+    import typing_extensions
+    import jinja2
 except ImportError:
     Utils.installPackage("psutil")
     Utils.installPackage("GitPython")
-
-require = pluginsManager.require
+    Utils.installPackage("jinja2")
+    Utils.installPackage("typing_extensions")
 
 meta_data = MetaData(
     name="Web UI",
@@ -33,24 +35,49 @@ meta_data = MetaData(
 
 def _enter():
     from fastapi.templating import Jinja2Templates
+    from fastapi.security import HTTPBasic, HTTPBasicCredentials
     from pbf.setup import pluginsManager, ListenerManager
     from pbf.utils import Path
     from pbf.driver.Fastapi import app
-    from fastapi import Request
+    from fastapi import Request, Depends, HTTPException, status
+    import secrets
     import pbf
     from git import Repo
     import shutil
     import platform
     from pbf import config
+    from typing_extensions import Annotated
 
+    security = HTTPBasic()
     templates = Jinja2Templates(directory=f"{os.path.dirname(__file__)}/templates")
 
+    def get_current_username(
+        credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    ):
+        current_username_bytes = credentials.username.encode("utf8")
+        correct_username_bytes = config.plugins_config["webui"].get("basic_auth", {}).get("username", "admin").encode("utf8")
+        is_correct_username = secrets.compare_digest(
+            current_username_bytes, correct_username_bytes
+        )
+        current_password_bytes = credentials.password.encode("utf8")
+        correct_password_bytes = config.plugins_config["webui"].get("basic_auth", {}).get("password", "admin").encode("utf8")
+        is_correct_password = secrets.compare_digest(
+            current_password_bytes, correct_password_bytes
+        )
+        if not (is_correct_username and is_correct_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+        return credentials.username
+
     @app.get("/web/api/sys_info", tags=["Web UI"])
-    async def sys_info(request: Request):
+    async def sys_info(username: Annotated[str, Depends(get_current_username)], request: Request):
         return [psutil.cpu_percent(), psutil.virtual_memory().percent, psutil.disk_usage("/").percent]
     
     @app.get("/web/api/get_plugin", tags=["Web UI"])
-    async def get_plugin(plugin_id: str):
+    async def get_plugin(username: Annotated[str, Depends(get_current_username)], plugin_id: str):
         data = pluginsManager.getAllPlugins().get(plugin_id, {})
         if data:
             data["readme"] = data["readme"].strip()
@@ -58,7 +85,7 @@ def _enter():
         return data
     
     @app.get("/web/api/install_plugin", tags=["Web UI"])
-    async def install_plugin(repo_url: str, reinstall: bool = False):
+    async def install_plugin(username: Annotated[str, Depends(get_current_username)], repo_url: str, reinstall: bool = False):
         plugin = repo_url.replace('.git', '').split('/')[-1]
         try:
             if reinstall:
@@ -73,7 +100,7 @@ def _enter():
         pluginsManager.loadPlugin(plugin)
 
     @app.get("/web/", tags=["Web UI"])
-    async def index(request: Request):
+    async def index(username: Annotated[str, Depends(get_current_username)], request: Request):
         return templates.TemplateResponse(
             request=request, name="index.html",
             context={
@@ -116,7 +143,7 @@ def _enter():
         )
 
     @app.get("/web/plugins/", tags=["Web UI"])
-    async def plugins(request: Request, q:str = None):
+    async def plugins(username: Annotated[str, Depends(get_current_username)], request: Request, q:str = None):
         data = pluginsManager.getAllPlugins()
         plugins = {}
         if q:
@@ -134,7 +161,7 @@ def _enter():
         )
 
     @app.get("/web/listeners/", tags=["Web UI"])
-    async def listeners(request: Request, q:str = None):
+    async def listeners(username: Annotated[str, Depends(get_current_username)], request: Request, q:str = None):
         return templates.TemplateResponse(
             request=request, name="listeners.html",
             context={
@@ -149,7 +176,7 @@ def _enter():
         )
     
     @app.get("/web/ob/", tags=["Web UI"])
-    async def ob(request: Request, q:str = None):
+    async def ob(username: Annotated[str, Depends(get_current_username)], request: Request, q:str = None):
         return templates.TemplateResponse(
             request=request, name="ob.html",
             context={
@@ -158,7 +185,7 @@ def _enter():
         )
     
     @app.get("/web/ob/online", tags=["Web UI"])
-    async def ob_online(request: Request, q:str = None):
+    async def ob_online(username: Annotated[str, Depends(get_current_username)], request: Request, q:str = None):
         return templates.TemplateResponse(
             request=request, name="ob_online.html",
             context={
